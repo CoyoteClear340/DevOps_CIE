@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devops-dashboard
+  namespace: devops-demo
+  labels: { app: devops-dashboard }
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app: devops-dashboard }
+  template:
+    metadata:
+      labels: { app: devops-dashboard }
+    spec:
+      containers:
+        - name: nginx
+          image: whalewarrior456/devops-monitor-dashboard:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+        - name: nginx-exporter
+          image: nginx/nginx-prometheus-exporter:1.4.2
+          args: ["-nginx.scrape-uri=http://127.0.0.1:8080/stub_status"]
+          ports:
+            - { name: metrics, containerPort: 9113 }
+          readinessProbe:
+            httpGet: { path: /metrics, port: metrics }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 50m, memory: 32Mi }

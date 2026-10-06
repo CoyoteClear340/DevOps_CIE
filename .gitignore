@@ -1,0 +1,9 @@
+.env
+.env.*
+*.secret
+*.key
+*.pem
+credentials.xml
+docker-login.txt
+.terraform/
+*.log

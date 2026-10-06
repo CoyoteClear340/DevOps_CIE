@@ -1,0 +1,23 @@
+:root { color-scheme: dark; --bg:#0b1220; --panel:#121d31; --line:#263653; --muted:#9aabc5; --accent:#5eead4; --blue:#7dd3fc; }
+* { box-sizing:border-box; }
+body { margin:0; min-height:100vh; font-family:Inter,Segoe UI,Arial,sans-serif; background:radial-gradient(circle at 75% 0,#193457 0,#0b1220 42%); color:#edf5ff; }
+.shell { width:min(1080px,92%); margin:0 auto; padding:58px 0 28px; }
+.hero { display:flex; justify-content:space-between; gap:24px; align-items:flex-start; margin-bottom:38px; }
+.eyebrow { color:var(--accent); font-size:12px; letter-spacing:2px; font-weight:700; margin:0 0 10px; }
+h1 { margin:0; font-size:clamp(30px,5vw,56px); letter-spacing:-2px; }
+.subtitle { color:var(--muted); font-size:17px; max-width:620px; line-height:1.6; }
+.status-pill { border:1px solid #2e716f; background:#123538; color:var(--accent); border-radius:999px; padding:11px 16px; white-space:nowrap; font-size:13px; font-weight:700; }
+.dot { display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; margin-right:8px; box-shadow:0 0 12px var(--accent); }
+.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+.card { background:rgba(18,29,49,.88); border:1px solid var(--line); border-radius:14px; padding:19px; min-height:98px; }
+.label { color:var(--muted); font-size:12px; display:block; margin-bottom:12px; text-transform:uppercase; letter-spacing:1px; }
+.card strong { font-size:17px; }
+.success { color:var(--accent); }
+.pipeline { margin-top:28px; background:rgba(18,29,49,.72); border:1px solid var(--line); border-radius:14px; padding:24px; }
+.section-heading { display:flex; justify-content:space-between; color:var(--muted); font-size:13px; }
+.steps { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:22px 0 15px; }
+.steps span { background:#1a2a45; border:1px solid #345072; color:var(--blue); padding:9px 13px; border-radius:8px; font-weight:700; font-size:14px; }
+.steps b { color:var(--accent); }
+.pipeline p, footer { color:var(--muted); font-size:14px; line-height:1.6; }
+footer { text-align:center; margin-top:28px; }
+@media(max-width:650px){ .hero{display:block}.status-pill{display:inline-block;margin-top:12px}.section-heading{display:block}.section-heading span:last-child{display:block;margin-top:8px} }

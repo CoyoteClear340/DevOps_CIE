@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: grafana, namespace: devops-demo }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: grafana } }
+  template:
+    metadata: { labels: { app: grafana } }
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.2.0
+          ports: [{ name: http, containerPort: 3000 }]
+          env:
+            - { name: GF_AUTH_ANONYMOUS_ENABLED, value: "true" }
+            - { name: GF_AUTH_ANONYMOUS_ORG_ROLE, value: Viewer }
+            - { name: GF_SECURITY_ADMIN_PASSWORD, value: demo-admin }
+          volumeMounts:
+            - { name: datasource, mountPath: /etc/grafana/provisioning/datasources }
+            - { name: provider, mountPath: /etc/grafana/provisioning/dashboards }
+            - { name: dashboard, mountPath: /var/lib/grafana/dashboards }
+      volumes:
+        - { name: datasource, configMap: { name: grafana-datasource } }
+        - { name: provider, configMap: { name: grafana-dashboard-provider } }
+        - { name: dashboard, configMap: { name: grafana-dashboard } }

@@ -1,0 +1,13 @@
+{
+  "title": "DevOps Monitor Dashboard",
+  "uid": "devops-monitor",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {"id":1,"type":"timeseries","title":"HTTP request rate","targets":[{"expr":"rate(nginx_http_requests_total[1m])","legendFormat":"requests/sec"}]},
+    {"id":2,"type":"stat","title":"Total HTTP requests","targets":[{"expr":"sum(nginx_http_requests_total)"}]},
+    {"id":3,"type":"timeseries","title":"Active connections","targets":[{"expr":"nginx_connections_active","legendFormat":"active"}]},
+    {"id":4,"type":"stat","title":"Exporter target health","targets":[{"expr":"min(up{job=\"nginx-exporter\"})","legendFormat":"up (1=yes)"}]}
+  ]
+}

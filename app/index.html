@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DevOps Monitor Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">CLOUD-NATIVE DELIVERY</p>
+        <h1>DevOps Monitor Dashboard</h1>
+        <p class="subtitle">A small, observable workload delivered through Git, Jenkins, Docker and Kubernetes.</p>
+      </div>
+      <span class="status-pill"><span class="dot"></span> System online</span>
+    </section>
+
+    <section class="cards" aria-label="Deployment status">
+      <article class="card"><span class="label">Application</span><strong>DevOps Monitor Dashboard</strong></article>
+      <article class="card"><span class="label">Environment</span><strong>Kubernetes</strong></article>
+      <article class="card"><span class="label">Version</span><strong id="version">1.0.0</strong></article>
+      <article class="card"><span class="label">Deployment</span><strong class="success">Healthy</strong></article>
+      <article class="card"><span class="label">Container</span><strong>Running</strong></article>
+      <article class="card"><span class="label">Replicas</span><strong>2 desired</strong></article>
+      <article class="card"><span class="label">Monitoring</span><strong class="success">Prometheus + Grafana</strong></article>
+    </section>
+
+    <section class="pipeline">
+      <div class="section-heading"><span class="eyebrow">DELIVERY PIPELINE</span><span>Automated path to production</span></div>
+      <div class="steps">
+        <span>Git</span><b>→</b><span>Jenkins</span><b>→</b><span>Docker</span><b>→</b><span>Kubernetes</span><b>→</b><span>Prometheus</span><b>→</b><span>Grafana</span>
+      </div>
+      <p>Every code change can be validated, packaged, deployed, measured and visualized locally.</p>
+    </section>
+    <footer>Served by Nginx • Metrics exposed by nginx-prometheus-exporter</footer>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
