@@ -2,85 +2,182 @@ pipeline {
     agent any
 
     options {
+        skipDefaultCheckout(true)
         timestamps()
         timeout(time: 30, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '10'))
         disableConcurrentBuilds()
     }
 
+    parameters {
+        string(
+            name: 'DOCKER_IMAGE',
+            defaultValue: 'whalewarrior456/devops-monitor-dashboard',
+            description: 'Docker Hub image repository: username/repository'
+        )
+    }
+
     environment {
-        KUBECONFIG = 'C:\\Users\\Jaydeep\\.kube\\config'
-        IMAGE_NAME = 'task-manager'
+        IMAGE_TAG = "build-${BUILD_NUMBER}"
+        K8S_NAMESPACE = 'devops-demo'
+        DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Environment Check') {
+        stage('Build Docker Image') {
             steps {
-                bat 'docker --version'
-                bat 'kubectl version --client'
-                bat 'kubectl config current-context'
-                bat 'kubectl get nodes'
+                powershell '''
+                    $ErrorActionPreference = "Stop"
+
+                    Write-Host "Using Docker CLI from PATH:"
+                    (Get-Command docker.exe).Source
+                    docker.exe version
+
+                    docker.exe build `
+                        -f docker/Dockerfile `
+                        -t "$env:DOCKER_IMAGE`:$env:IMAGE_TAG" `
+                        .
+
+                    if ($LASTEXITCODE -ne 0) {
+                        throw "Docker image build failed."
+                    }
+                '''
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Push Docker Image') {
             steps {
-                bat 'npm install'
-            }
-        }
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: "${DOCKER_CREDENTIALS_ID}",
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+                    powershell '''
+                        $ErrorActionPreference = "Stop"
 
-        stage('Build') {
-            steps {
-                bat 'npm run build'
-            }
-        }
+                        $env:DOCKER_PASSWORD | docker.exe login `
+                            --username "$env:DOCKER_USERNAME" `
+                            --password-stdin
 
-        stage('Automated Testing') {
-            steps {
-                bat 'npm test'
-            }
-        }
+                        if ($LASTEXITCODE -ne 0) {
+                            throw "Docker Hub login failed."
+                        }
 
-        stage('Docker Build') {
-            steps {
-                bat 'docker build -t %IMAGE_NAME%:%BUILD_NUMBER% .'
+                        docker.exe push "$env:DOCKER_IMAGE`:$env:IMAGE_TAG"
+
+                        if ($LASTEXITCODE -ne 0) {
+                            throw "Docker image push failed."
+                        }
+                    '''
+                }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                bat 'kubectl apply -f deployment.yaml'
-                bat 'kubectl apply -f service.yaml'
+                powershell '''
+                    $ErrorActionPreference = "Stop"
 
-                bat 'kubectl set image deployment/task-manager-deployment task-manager=%IMAGE_NAME%:%BUILD_NUMBER%'
+                    if ([string]::IsNullOrWhiteSpace($env:KUBECONFIG)) {
+                        throw "KUBECONFIG is not configured for the Jenkins agent."
+                    }
 
-                bat 'kubectl rollout status deployment/task-manager-deployment --timeout=120s'
+                    if (!(Test-Path $env:KUBECONFIG)) {
+                        throw "KUBECONFIG file was not found: $env:KUBECONFIG"
+                    }
+
+                    Write-Host "Using Kubernetes configuration: $env:KUBECONFIG"
+                    kubectl.exe config current-context
+
+                    kubectl.exe apply `
+                        -f k8s/namespace.yaml `
+                        -f k8s/deployment.yaml `
+                        -f k8s/service.yaml `
+                        -f k8s/exporter-service.yaml
+
+                    if ($LASTEXITCODE -ne 0) {
+                        throw "Kubernetes resource deployment failed."
+                    }
+
+                    kubectl.exe -n "$env:K8S_NAMESPACE" set image `
+                        deployment/devops-dashboard `
+                        nginx="$env:DOCKER_IMAGE`:$env:IMAGE_TAG"
+
+                    if ($LASTEXITCODE -ne 0) {
+                        throw "Kubernetes image update failed."
+                    }
+                '''
             }
         }
 
-        stage('Verify Kubernetes') {
+        stage('Verify Deployment and Application') {
             steps {
-                bat 'kubectl get deployment task-manager-deployment -o wide'
-                bat 'kubectl get pods'
-                bat 'kubectl get service task-manager-service'
+                powershell '''
+                    $ErrorActionPreference = "Stop"
+
+                    kubectl.exe -n "$env:K8S_NAMESPACE" rollout status `
+                        deployment/devops-dashboard `
+                        --timeout=180s
+
+                    if ($LASTEXITCODE -ne 0) {
+                        throw "Kubernetes rollout failed."
+                    }
+
+                    kubectl.exe -n "$env:K8S_NAMESPACE" get pods,svc
+
+                    $portForward = Start-Process `
+                        -FilePath "kubectl.exe" `
+                        -ArgumentList "-n $env:K8S_NAMESPACE port-forward service/devops-dashboard 18081:8080" `
+                        -PassThru `
+                        -NoNewWindow
+
+                    try {
+                        Start-Sleep -Seconds 5
+
+                        $response = Invoke-WebRequest `
+                            -Uri "http://127.0.0.1:18081/" `
+                            -UseBasicParsing `
+                            -TimeoutSec 10
+
+                        if ($response.StatusCode -ne 200) {
+                            throw "Application returned HTTP status $($response.StatusCode)."
+                        }
+
+                        if ($response.Content -notmatch "DevOps Monitor Dashboard") {
+                            throw "Application response did not contain the expected dashboard."
+                        }
+
+                        Write-Host "End-to-end application verification passed."
+                    }
+                    finally {
+                        if ($portForward -and -not $portForward.HasExited) {
+                            Stop-Process -Id $portForward.Id -Force
+                        }
+                    }
+                '''
             }
         }
     }
 
     post {
-        success {
-            echo 'Student Task Manager deployed successfully to Kubernetes.'
+        always {
+            powershell '''
+                docker.exe logout 2>$null
+            '''
         }
-
+        success {
+            echo 'DevOps Monitor Dashboard deployed successfully.'
+        }
         failure {
-            echo 'Pipeline failed. Check the stage logs.'
+            echo 'Pipeline failed. Check Docker Hub credentials, DOCKER_IMAGE, KUBECONFIG, and stage logs.'
         }
     }
 }
