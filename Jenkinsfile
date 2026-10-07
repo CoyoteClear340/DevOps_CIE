@@ -14,7 +14,7 @@ pipeline {
     disableConcurrentBuilds()
   }
   parameters {
-    string(name: 'DOCKER_IMAGE', defaultValue: 'whalewarrior456/devops-monitor-dashboard', description: 'Docker Hub repository, for example username/devops-monitor-dashboard')
+    string(name: 'DOCKER_IMAGE', defaultValue: 'arnavk11/devops-cie', description: 'Docker Hub repository, for example username/devops-monitor-dashboard')
   }
   environment {
     IMAGE_TAG = "build-${BUILD_NUMBER}"

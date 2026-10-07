@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: whalewarrior456/devops-monitor-dashboard:latest
+          image: arnavk11/devops-cie:latest
           imagePullPolicy: IfNotPresent
           ports:
             - { name: http, containerPort: 8080 }
