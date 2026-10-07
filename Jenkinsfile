@@ -24,7 +24,7 @@ pipeline {
   environment {
     IMAGE_TAG = "build-${BUILD_NUMBER}"
     K8S_NAMESPACE = "devops-demo"
-    DOCKER_CREDENTIALS_ID = "dockerhub-credentials"
+    DOCKER_CREDENTIALS_ID = "whalewarrior456"
   }
 
   stages {
