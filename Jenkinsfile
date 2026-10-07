@@ -9,7 +9,7 @@ pipeline {
     }
 
     environment {
-        KUBECONFIG = 'C:\\Users\\AYUSH\\.kube\\config'
+        KUBECONFIG = 'C:\\Users\\Jaydeep\\.kube\\config'
         IMAGE_NAME = 'task-manager'
     }
 
