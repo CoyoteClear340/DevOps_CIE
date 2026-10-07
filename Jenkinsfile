@@ -17,11 +17,12 @@ pipeline {
         )
     }
 
-    environment {
-        IMAGE_TAG = "build-${BUILD_NUMBER}"
-        K8S_NAMESPACE = 'devops-demo'
-        DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
-    }
+environment {
+    DOCKER_IMAGE = "${params.DOCKER_IMAGE}"
+    IMAGE_TAG = "build-${BUILD_NUMBER}"
+    K8S_NAMESPACE = 'devops-demo'
+    DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
+}
 
     stages {
         stage('Checkout') {
