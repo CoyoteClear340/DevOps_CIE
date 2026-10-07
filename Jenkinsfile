@@ -1,3 +1,4 @@
+
 pipeline {
     agent any
 
@@ -12,18 +13,18 @@ pipeline {
     parameters {
         string(
             name: 'DOCKER_IMAGE',
-            defaultValue: 'whalewarrior456/devops-monitor-dashboard',
-            description: 'Docker Hub image repository: username/repository'
+            defaultValue: 'devops-monitor-dashboard',
+            description: 'Local Docker image name'
         )
     }
 
     environment {
         IMAGE_TAG = "build-${BUILD_NUMBER}"
         K8S_NAMESPACE = 'devops-demo'
-        DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -35,49 +36,31 @@ pipeline {
                 powershell '''
                     $ErrorActionPreference = "Stop"
 
-                    Write-Host "Using Docker CLI from PATH:"
+                    Write-Host "=========================================="
+                    Write-Host "Building Docker Image"
+                    Write-Host "=========================================="
+
+                    Write-Host "Docker:"
                     (Get-Command docker.exe).Source
                     docker.exe version
 
+                    $IMAGE = "$env:DOCKER_IMAGE`:$env:IMAGE_TAG"
+
+                    Write-Host "Building image: $IMAGE"
+
                     docker.exe build `
                         -f docker/Dockerfile `
-                        -t "$env:DOCKER_IMAGE`:$env:IMAGE_TAG" `
+                        -t "$IMAGE" `
                         .
 
                     if ($LASTEXITCODE -ne 0) {
                         throw "Docker image build failed."
                     }
+
+                    Write-Host ""
+                    Write-Host "Docker image created successfully:"
+                    docker.exe images "$env:DOCKER_IMAGE"
                 '''
-            }
-        }
-
-        stage('Push Docker Image') {
-            steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: "${DOCKER_CREDENTIALS_ID}",
-                        usernameVariable: 'DOCKER_USERNAME',
-                        passwordVariable: 'DOCKER_PASSWORD'
-                    )
-                ]) {
-                    powershell '''
-                        $ErrorActionPreference = "Stop"
-
-                        $env:DOCKER_PASSWORD | docker.exe login `
-                            --username "$env:DOCKER_USERNAME" `
-                            --password-stdin
-
-                        if ($LASTEXITCODE -ne 0) {
-                            throw "Docker Hub login failed."
-                        }
-
-                        docker.exe push "$env:DOCKER_IMAGE`:$env:IMAGE_TAG"
-
-                        if ($LASTEXITCODE -ne 0) {
-                            throw "Docker image push failed."
-                        }
-                    '''
-                }
             }
         }
 
@@ -86,16 +69,13 @@ pipeline {
                 powershell '''
                     $ErrorActionPreference = "Stop"
 
-                    if ([string]::IsNullOrWhiteSpace($env:KUBECONFIG)) {
-                        throw "KUBECONFIG is not configured for the Jenkins agent."
-                    }
+                    Write-Host "=========================================="
+                    Write-Host "Deploying to Kubernetes"
+                    Write-Host "=========================================="
 
-                    if (!(Test-Path $env:KUBECONFIG)) {
-                        throw "KUBECONFIG file was not found: $env:KUBECONFIG"
-                    }
-
-                    Write-Host "Using Kubernetes configuration: $env:KUBECONFIG"
                     kubectl.exe config current-context
+
+                    Write-Host "Using namespace: $env:K8S_NAMESPACE"
 
                     kubectl.exe apply `
                         -f k8s/namespace.yaml `
@@ -107,21 +87,31 @@ pipeline {
                         throw "Kubernetes resource deployment failed."
                     }
 
+                    $IMAGE = "$env:DOCKER_IMAGE`:$env:IMAGE_TAG"
+
+                    Write-Host "Updating deployment image to: $IMAGE"
+
                     kubectl.exe -n "$env:K8S_NAMESPACE" set image `
                         deployment/devops-dashboard `
-                        nginx="$env:DOCKER_IMAGE`:$env:IMAGE_TAG"
+                        nginx="$IMAGE"
 
                     if ($LASTEXITCODE -ne 0) {
                         throw "Kubernetes image update failed."
                     }
+
+                    Write-Host "Kubernetes image updated successfully."
                 '''
             }
         }
 
-        stage('Verify Deployment and Application') {
+        stage('Verify Deployment') {
             steps {
                 powershell '''
                     $ErrorActionPreference = "Stop"
+
+                    Write-Host "=========================================="
+                    Write-Host "Waiting for Kubernetes rollout"
+                    Write-Host "=========================================="
 
                     kubectl.exe -n "$env:K8S_NAMESPACE" rollout status `
                         deployment/devops-dashboard `
@@ -131,7 +121,29 @@ pipeline {
                         throw "Kubernetes rollout failed."
                     }
 
-                    kubectl.exe -n "$env:K8S_NAMESPACE" get pods,svc
+                    Write-Host ""
+                    Write-Host "Pods:"
+                    kubectl.exe -n "$env:K8S_NAMESPACE" get pods -o wide
+
+                    Write-Host ""
+                    Write-Host "Services:"
+                    kubectl.exe -n "$env:K8S_NAMESPACE" get svc
+
+                    Write-Host ""
+                    Write-Host "Deployment:"
+                    kubectl.exe -n "$env:K8S_NAMESPACE" get deployment
+                '''
+            }
+        }
+
+        stage('Test Application') {
+            steps {
+                powershell '''
+                    $ErrorActionPreference = "Stop"
+
+                    Write-Host "=========================================="
+                    Write-Host "Testing Application"
+                    Write-Host "=========================================="
 
                     $portForward = Start-Process `
                         -FilePath "kubectl.exe" `
@@ -140,12 +152,19 @@ pipeline {
                         -NoNewWindow
 
                     try {
+                        Write-Host "Waiting for port-forward..."
                         Start-Sleep -Seconds 5
 
+                        $url = "http://127.0.0.1:18081/"
+
+                        Write-Host "Testing: $url"
+
                         $response = Invoke-WebRequest `
-                            -Uri "http://127.0.0.1:18081/" `
+                            -Uri $url `
                             -UseBasicParsing `
                             -TimeoutSec 10
+
+                        Write-Host "HTTP Status: $($response.StatusCode)"
 
                         if ($response.StatusCode -ne 200) {
                             throw "Application returned HTTP status $($response.StatusCode)."
@@ -155,7 +174,11 @@ pipeline {
                             throw "Application response did not contain the expected dashboard."
                         }
 
-                        Write-Host "End-to-end application verification passed."
+                        Write-Host ""
+                        Write-Host "=========================================="
+                        Write-Host "APPLICATION TEST PASSED"
+                        Write-Host "=========================================="
+                        Write-Host "DevOps Monitor Dashboard is running."
                     }
                     finally {
                         if ($portForward -and -not $portForward.HasExited) {
@@ -168,16 +191,13 @@ pipeline {
     }
 
     post {
-        always {
-            powershell '''
-                docker.exe logout 2>$null
-            '''
-        }
         success {
-            echo 'DevOps Monitor Dashboard deployed successfully.'
+            echo 'SUCCESS: Docker image built, deployed to Kubernetes, and application test passed.'
         }
+
         failure {
-            echo 'Pipeline failed. Check Docker Hub credentials, DOCKER_IMAGE, KUBECONFIG, and stage logs.'
+            echo 'FAILED: Check Docker build, Kubernetes deployment, rollout, or application test logs.'
         }
     }
 }
+
